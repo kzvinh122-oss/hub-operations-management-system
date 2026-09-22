@@ -1,42 +1,59 @@
+-- =========================================================
 -- Hub Operations Management System
--- SQL Analysis
+-- SQL KPI & Operational Analysis
+-- =========================================================
 
--- 1. View toàn bộ dữ liệu
+
+-- 1. VIEW TOÀN BỘ DỮ LIỆU
 SELECT *
 FROM hub_operations;
 
 
--- 2. Tổng số shipment
-SELECT COUNT(*) AS total_shipments
-FROM hub_operations;
+-- =========================================================
+-- 2. KPI TỔNG QUAN
+-- =========================================================
 
-
--- 3. Tổng số kiện hàng
-SELECT SUM(quantity) AS total_quantity
-FROM hub_operations;
-
-
--- 4. Số shipment theo từng điểm đến
+-- Tổng số shipment
 SELECT
-    destination,
-    COUNT(*) AS total_shipments,
+    COUNT(*) AS total_shipments
+FROM hub_operations;
+
+
+-- Tổng số kiện hàng
+SELECT
     SUM(quantity) AS total_quantity
-FROM hub_operations
-GROUP BY destination
-ORDER BY total_quantity DESC;
+FROM hub_operations;
 
 
--- 5. Kiểm tra các shipment có lỗi
+-- Số shipment hoàn thành
 SELECT
-    shipment_id,
-    destination,
-    quantity,
-    error_type
+    COUNT(*) AS completed_shipments
+FROM hub_operations
+WHERE status = 'Completed';
+
+
+-- =========================================================
+-- 3. KPI LỖI VẬN HÀNH
+-- =========================================================
+
+-- Tổng số shipment có lỗi
+SELECT
+    COUNT(*) AS error_shipments
 FROM hub_operations
 WHERE error_type <> 'None';
 
 
--- 6. Thống kê loại lỗi
+-- Tỷ lệ shipment có lỗi (%)
+SELECT
+    ROUND(
+        COUNT(CASE WHEN error_type <> 'None' THEN 1 END)
+        * 100.0 / COUNT(*),
+        2
+    ) AS error_rate_percent
+FROM hub_operations;
+
+
+-- Thống kê từng loại lỗi
 SELECT
     error_type,
     COUNT(*) AS error_count
@@ -46,37 +63,181 @@ GROUP BY error_type
 ORDER BY error_count DESC;
 
 
--- 7. Tỷ lệ shipment có lỗi
+-- =========================================================
+-- 4. PHÂN TÍCH THEO ĐIỂM ĐẾN
+-- =========================================================
+
+-- Số shipment theo destination
 SELECT
-    COUNT(CASE WHEN error_type <> 'None' THEN 1 END) * 100.0
-    / COUNT(*) AS error_rate_percent
-FROM hub_operations;
-
-
--- 8. Sản lượng theo ngày
-SELECT
-    operation_date,
-    COUNT(*) AS total_shipments,
-    SUM(quantity) AS total_quantity
-FROM hub_operations
-GROUP BY operation_date
-ORDER BY operation_date;
-
-
--- 9. Shipment có sản lượng lớn
-SELECT
-    shipment_id,
     destination,
-    quantity
+    COUNT(*) AS total_shipments
 FROM hub_operations
-WHERE quantity >= 150
-ORDER BY quantity DESC;
+GROUP BY destination
+ORDER BY total_shipments DESC;
 
 
--- 10. Top điểm đến theo sản lượng
+-- Tổng sản lượng theo destination
 SELECT
     destination,
     SUM(quantity) AS total_quantity
 FROM hub_operations
 GROUP BY destination
 ORDER BY total_quantity DESC;
+
+
+-- Shipment lỗi theo destination
+SELECT
+    destination,
+    COUNT(*) AS error_shipments
+FROM hub_operations
+WHERE error_type <> 'None'
+GROUP BY destination
+ORDER BY error_shipments DESC;
+
+
+-- =========================================================
+-- 5. PHÂN TÍCH THỜI GIAN XỬ LÝ
+-- =========================================================
+
+-- Thời gian từ Inbound → Sorting
+SELECT
+    shipment_id,
+    destination,
+    ROUND(
+        (TIME_TO_SEC(sorting_time)
+        - TIME_TO_SEC(inbound_time)) / 60,
+        2
+    ) AS inbound_to_sorting_minutes
+FROM hub_operations
+ORDER BY inbound_to_sorting_minutes DESC;
+
+
+-- Thời gian từ Sorting → Outbound
+SELECT
+    shipment_id,
+    destination,
+    ROUND(
+        (TIME_TO_SEC(outbound_time)
+        - TIME_TO_SEC(sorting_time)) / 60,
+        2
+    ) AS sorting_to_outbound_minutes
+FROM hub_operations
+ORDER BY sorting_to_outbound_minutes DESC;
+
+
+-- Tổng thời gian xử lý Inbound → Outbound
+SELECT
+    shipment_id,
+    destination,
+    ROUND(
+        (TIME_TO_SEC(outbound_time)
+        - TIME_TO_SEC(inbound_time)) / 60,
+        2
+    ) AS total_processing_minutes
+FROM hub_operations
+ORDER BY total_processing_minutes DESC;
+
+
+-- =========================================================
+-- 6. THỜI GIAN XỬ LÝ TRUNG BÌNH
+-- =========================================================
+
+-- Average Inbound → Sorting
+SELECT
+    ROUND(
+        AVG(
+            (TIME_TO_SEC(sorting_time)
+            - TIME_TO_SEC(inbound_time)) / 60
+        ),
+        2
+    ) AS avg_inbound_to_sorting_minutes
+FROM hub_operations;
+
+
+-- Average Sorting → Outbound
+SELECT
+    ROUND(
+        AVG(
+            (TIME_TO_SEC(outbound_time)
+            - TIME_TO_SEC(sorting_time)) / 60
+        ),
+        2
+    ) AS avg_sorting_to_outbound_minutes
+FROM hub_operations;
+
+
+-- Average Total Processing Time
+SELECT
+    ROUND(
+        AVG(
+            (TIME_TO_SEC(outbound_time)
+            - TIME_TO_SEC(inbound_time)) / 60
+        ),
+        2
+    ) AS avg_total_processing_minutes
+FROM hub_operations;
+
+
+-- =========================================================
+-- 7. SHIPMENT CÓ SẢN LƯỢNG CAO
+-- =========================================================
+
+SELECT
+    shipment_id,
+    destination,
+    quantity,
+    status
+FROM hub_operations
+WHERE quantity >= 150
+ORDER BY quantity DESC;
+
+
+-- =========================================================
+-- 8. SHIPMENT CÓ THỜI GIAN XỬ LÝ DÀI
+-- =========================================================
+
+SELECT
+    shipment_id,
+    destination,
+    ROUND(
+        (TIME_TO_SEC(outbound_time)
+        - TIME_TO_SEC(inbound_time)) / 60,
+        2
+    ) AS processing_minutes
+FROM hub_operations
+WHERE
+    (TIME_TO_SEC(outbound_time)
+    - TIME_TO_SEC(inbound_time)) / 60 >= 240
+ORDER BY processing_minutes DESC;
+
+
+-- =========================================================
+-- 9. PHÂN TÍCH THEO NGÀY
+-- =========================================================
+
+SELECT
+    operation_date,
+    COUNT(*) AS total_shipments,
+    SUM(quantity) AS total_quantity,
+    COUNT(CASE WHEN error_type <> 'None' THEN 1 END)
+        AS error_shipments
+FROM hub_operations
+GROUP BY operation_date
+ORDER BY operation_date;
+
+
+-- =========================================================
+-- 10. TOP DESTINATION THEO SẢN LƯỢNG
+-- =========================================================
+
+SELECT
+    destination,
+    SUM(quantity) AS total_quantity
+FROM hub_operations
+GROUP BY destination
+ORDER BY total_quantity DESC;
+
+
+-- =========================================================
+-- END OF HUB OPERATIONS ANALYSIS
+-- =========================================================
