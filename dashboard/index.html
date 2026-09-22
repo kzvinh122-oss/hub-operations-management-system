@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hub Operations Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <header>
+            <h1>Hub Operations Dashboard</h1>
+            <p>Logistics Hub Operational Performance</p>
+        </header>
+
+        <section class="kpi-grid">
+
+            <div class="kpi-card">
+                <h3>Total Shipments</h3>
+                <p id="totalShipments">0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Total Quantity</h3>
+                <p id="totalQuantity">0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Error Count</h3>
+                <p id="errorCount">0</p>
+            </div>
+
+            <div class="kpi-card">
+                <h3>Error Rate</h3>
+                <p id="errorRate">0%</p>
+            </div>
+
+        </section>
+
+        <section class="charts">
+
+            <div class="chart-card">
+                <h2>Quantity by Destination</h2>
+                <canvas id="destinationChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h2>Error Types</h2>
+                <canvas id="errorChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h2>Processing Time</h2>
+                <canvas id="processingChart"></canvas>
+            </div>
+
+        </section>
+
+        <section class="table-card">
+
+            <h2>Shipment Details</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Shipment ID</th>
+                        <th>Destination</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                        <th>Error Type</th>
+                    </tr>
+                </thead>
+
+                <tbody id="shipmentTable"></tbody>
+
+            </table>
+
+        </section>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
