@@ -1,11 +1,15 @@
 // =====================================================
-// Hub Operations Dashboard
-// JavaScript Data Processing & Visualization
+// HUB OPERATIONS DASHBOARD
+// Data Processing & Visualization
 // =====================================================
 
 const DATA_URL = "../data/hub_operations.csv";
 
 let shipments = [];
+
+let destinationChart = null;
+let errorChart = null;
+let processingChart = null;
 
 
 // =====================================================
@@ -13,7 +17,9 @@ let shipments = [];
 // =====================================================
 
 async function loadData() {
+
     try {
+
         const response = await fetch(DATA_URL);
 
         if (!response.ok) {
@@ -27,7 +33,11 @@ async function loadData() {
         updateDashboard();
 
     } catch (error) {
+
         console.error("Error loading data:", error);
+
+        showErrorMessage();
+
     }
 }
 
@@ -38,9 +48,17 @@ async function loadData() {
 
 function parseCSV(text) {
 
-    const lines = text.trim().split("\n");
+    const lines = text
+        .trim()
+        .split(/\r?\n/);
 
-    const headers = lines[0].split(",");
+    if (lines.length < 2) {
+        return [];
+    }
+
+    const headers = lines[0]
+        .split(",")
+        .map(header => header.trim());
 
     return lines.slice(1).map(line => {
 
@@ -49,36 +67,49 @@ function parseCSV(text) {
         const row = {};
 
         headers.forEach((header, index) => {
-            row[header.trim()] = values[index]
+
+            row[header] = values[index]
                 ? values[index].trim()
                 : "";
+
         });
 
-        row.quantity = Number(row.quantity);
+        row.quantity = Number(row.quantity) || 0;
 
         return row;
+
     });
 }
 
 
 // =====================================================
-// 3. UPDATE KPI
+// 3. UPDATE DASHBOARD
 // =====================================================
 
 function updateDashboard() {
 
+    if (shipments.length === 0) {
+        showErrorMessage();
+        return;
+    }
+
     const totalShipments = shipments.length;
+
 
     const totalQuantity = shipments.reduce(
         (sum, item) => sum + item.quantity,
         0
     );
 
+
     const errorShipments = shipments.filter(
-        item => item.error_type !== "None"
+        item => item.error_type &&
+                item.error_type.toLowerCase() !== "none"
     );
 
+
     const errorCount = errorShipments.length;
+
 
     const errorRate =
         totalShipments > 0
@@ -86,18 +117,25 @@ function updateDashboard() {
             : 0;
 
 
+    // Update KPI
+
     document.getElementById("totalShipments").textContent =
-        totalShipments;
+        totalShipments.toLocaleString();
+
 
     document.getElementById("totalQuantity").textContent =
         totalQuantity.toLocaleString();
 
+
     document.getElementById("errorCount").textContent =
-        errorCount;
+        errorCount.toLocaleString();
+
 
     document.getElementById("errorRate").textContent =
         errorRate.toFixed(2) + "%";
 
+
+    // Create charts
 
     createDestinationChart();
 
@@ -117,49 +155,82 @@ function createDestinationChart() {
 
     const destinationData = {};
 
+
     shipments.forEach(item => {
 
-        if (!destinationData[item.destination]) {
-            destinationData[item.destination] = 0;
+        const destination =
+            item.destination || "Unknown";
+
+
+        if (!destinationData[destination]) {
+            destinationData[destination] = 0;
         }
 
-        destinationData[item.destination] += item.quantity;
+
+        destinationData[destination] +=
+            item.quantity;
 
     });
 
 
-    const labels = Object.keys(destinationData);
+    const labels =
+        Object.keys(destinationData);
 
-    const values = Object.values(destinationData);
+
+    const values =
+        Object.values(destinationData);
 
 
-    new Chart(
-        document.getElementById("destinationChart"),
-        {
-            type: "bar",
+    const canvas =
+        document.getElementById("destinationChart");
 
-            data: {
-                labels: labels,
 
-                datasets: [
-                    {
-                        label: "Quantity",
-                        data: values
-                    }
-                ]
+    if (destinationChart) {
+        destinationChart.destroy();
+    }
+
+
+    destinationChart = new Chart(canvas, {
+
+        type: "bar",
+
+        data: {
+
+            labels: labels,
+
+            datasets: [
+                {
+                    label: "Quantity",
+                    data: values
+                }
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            plugins: {
+
+                legend: {
+                    display: false
+                }
+
             },
 
-            options: {
-                responsive: true,
+            scales: {
 
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+                y: {
+                    beginAtZero: true
                 }
+
             }
+
         }
-    );
+
+    });
+
 }
 
 
@@ -171,62 +242,110 @@ function createErrorChart() {
 
     const errorData = {};
 
+
     shipments
-        .filter(item => item.error_type !== "None")
+        .filter(item =>
+            item.error_type &&
+            item.error_type.toLowerCase() !== "none"
+        )
         .forEach(item => {
 
-            if (!errorData[item.error_type]) {
-                errorData[item.error_type] = 0;
+            const error =
+                item.error_type;
+
+
+            if (!errorData[error]) {
+                errorData[error] = 0;
             }
 
-            errorData[item.error_type]++;
+
+            errorData[error]++;
 
         });
 
 
-    const labels = Object.keys(errorData);
+    const labels =
+        Object.keys(errorData);
 
-    const values = Object.values(errorData);
+
+    const values =
+        Object.values(errorData);
 
 
-    new Chart(
-        document.getElementById("errorChart"),
-        {
-            type: "doughnut",
+    const canvas =
+        document.getElementById("errorChart");
 
-            data: {
-                labels: labels,
 
-                datasets: [
-                    {
-                        data: values
-                    }
-                ]
-            },
+    if (errorChart) {
+        errorChart.destroy();
+    }
 
-            options: {
-                responsive: true
+
+    errorChart = new Chart(canvas, {
+
+        type: "doughnut",
+
+        data: {
+
+            labels: labels,
+
+            datasets: [
+                {
+                    data: values
+                }
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            plugins: {
+
+                legend: {
+                    position: "bottom"
+                }
+
             }
+
         }
-    );
+
+    });
+
 }
 
 
 // =====================================================
-// 6. PROCESSING TIME
+// 6. TIME CONVERSION
 // =====================================================
 
 function timeToMinutes(time) {
 
-    const parts = time.split(":");
+    if (!time) {
+        return 0;
+    }
 
-    const hours = Number(parts[0]);
 
-    const minutes = Number(parts[1]);
+    const parts =
+        time.split(":");
+
+
+    const hours =
+        Number(parts[0]) || 0;
+
+
+    const minutes =
+        Number(parts[1]) || 0;
+
 
     return hours * 60 + minutes;
 }
 
+
+// =====================================================
+// 7. PROCESSING TIME CHART
+// =====================================================
 
 function createProcessingChart() {
 
@@ -240,11 +359,20 @@ function createProcessingChart() {
         const inbound =
             timeToMinutes(item.inbound_time);
 
+
         const outbound =
             timeToMinutes(item.outbound_time);
 
-        const processing =
+
+        let processing =
             outbound - inbound;
+
+
+        // Handle overnight operation
+
+        if (processing < 0) {
+            processing += 24 * 60;
+        }
 
 
         labels.push(item.shipment_id);
@@ -254,45 +382,75 @@ function createProcessingChart() {
     });
 
 
-    new Chart(
-        document.getElementById("processingChart"),
-        {
-            type: "line",
+    const canvas =
+        document.getElementById("processingChart");
 
-            data: {
-                labels: labels,
 
-                datasets: [
-                    {
-                        label: "Processing Time (minutes)",
-                        data: processingTimes,
-                        tension: 0.3
-                    }
-                ]
-            },
+    if (processingChart) {
+        processingChart.destroy();
+    }
 
-            options: {
-                responsive: true,
 
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+    processingChart = new Chart(canvas, {
+
+        type: "line",
+
+        data: {
+
+            labels: labels,
+
+            datasets: [
+                {
+                    label: "Processing Time (minutes)",
+
+                    data: processingTimes,
+
+                    tension: 0.3,
+
+                    fill: false
                 }
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            scales: {
+
+                y: {
+                    beginAtZero: true,
+
+                    title: {
+                        display: true,
+                        text: "Minutes"
+                    }
+
+                }
+
             }
+
         }
-    );
+
+    });
+
 }
 
 
 // =====================================================
-// 7. SHIPMENT TABLE
+// 8. SHIPMENT TABLE
 // =====================================================
 
 function createShipmentTable() {
 
     const table =
         document.getElementById("shipmentTable");
+
+
+    if (!table) {
+        return;
+    }
 
 
     table.innerHTML = "";
@@ -305,22 +463,74 @@ function createShipmentTable() {
 
 
         row.innerHTML = `
-            <td>${item.shipment_id}</td>
-            <td>${item.destination}</td>
-            <td>${item.quantity}</td>
-            <td>${item.status}</td>
-            <td>${item.error_type}</td>
+
+            <td>
+                ${item.shipment_id || "-"}
+            </td>
+
+            <td>
+                ${item.destination || "-"}
+            </td>
+
+            <td>
+                ${Number(item.quantity || 0).toLocaleString()}
+            </td>
+
+            <td>
+                ${item.status || "-"}
+            </td>
+
+            <td>
+                ${item.error_type || "None"}
+            </td>
+
         `;
 
 
         table.appendChild(row);
 
     });
+
 }
 
 
 // =====================================================
-// 8. START DASHBOARD
+// 9. ERROR MESSAGE
+// =====================================================
+
+function showErrorMessage() {
+
+    const container =
+        document.querySelector(".container");
+
+
+    if (!container) {
+        return;
+    }
+
+
+    const message =
+        document.createElement("div");
+
+
+    message.style.background = "#fee2e2";
+    message.style.color = "#991b1b";
+    message.style.padding = "15px";
+    message.style.borderRadius = "10px";
+    message.style.marginBottom = "20px";
+
+
+    message.textContent =
+        "Unable to load warehouse data. Please check the CSV file path.";
+
+
+    container.prepend(message);
+
+}
+
+
+// =====================================================
+// 10. START DASHBOARD
 // =====================================================
 
 loadData();
